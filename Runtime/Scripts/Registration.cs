@@ -2,7 +2,9 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 using UnityEngine;
+using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Manages registration workflow, including marker setup, state changes, and alignment algorithms for a target object.
@@ -10,7 +12,7 @@ using UnityEngine;
 /// <remarks>
 /// David Mertens, TH Koeln.
 /// </remarks>
-/// 
+///
 public class Registration : MonoBehaviour
 {
     public RegiTarget regiTarget;
@@ -19,6 +21,8 @@ public class Registration : MonoBehaviour
     public event Action StateChanged;
     public string numUuidsKey = "demoTargetUuidKey";
     public bool onlyCorrectYAxis;
+    [SerializeField] private bool loadSceneAfterSaveForTest;
+    [SerializeField] private string sceneToLoadAfterSave = "DatahubTest";
 
     [HideInInspector] public State currentState;
     [HideInInspector] public List<GameObject> markers;
@@ -83,7 +87,7 @@ public class Registration : MonoBehaviour
     public void AddMarker(Vector3 position)
     {
         if (markers.Count >= regiTarget.amountControlPoints) return;
-      
+
         GameObject go = Helper.CreateSmallSphere();
         go.transform.position = position;
         go.AddComponent<OVRSpatialAnchor>();
@@ -115,15 +119,17 @@ public class Registration : MonoBehaviour
         ResetTarget();
         ResetMarker();
     }
-    
+
     /// <summary>
     /// Saves the current registration data asynchronously.
     /// </summary>
-    public async void SaveRegistration()
+    public void SaveRegistration()
     {
-        Debug.Log("Save ANCHOR");
-        await _anchorLoaderManager.DeleteAllAnchors();
-        regiTarget.gameObject.AddComponent<OVRSpatialAnchor>();
+        if (regiTarget.GetComponent<OVRSpatialAnchor>() == null)
+        {
+            regiTarget.gameObject.AddComponent<OVRSpatialAnchor>();
+        }
+
         StartCoroutine(SaveAnchorsDelayed());
     }
 
@@ -133,7 +139,7 @@ public class Registration : MonoBehaviour
         regiTarget.transform.position = Vector3.zero;
         regiTarget.transform.rotation = Quaternion.identity;
     }
-    
+
     private void ResetMarker()
     {
         markers.ForEach(Destroy);
@@ -142,29 +148,88 @@ public class Registration : MonoBehaviour
 
     private void LinkPositionFromDevice()
     {
-        List<Guid> uuids = AnchorStorage.LoadAllAnchorUuids();
-        Debug.Log("LOAD ANCHORS: " + uuids.Count);
         _anchorLoaderManager.AnchorLoader.LoadAnchorsByUuid(regiTarget);
         SetState(State.Confirmation);
     }
 
     private IEnumerator SaveAnchorsDelayed()
     {
-        yield return new WaitForSeconds(0.01f);
-        _anchorLoaderManager.SaveAnchor(regiTarget.GetComponent<OVRSpatialAnchor>());
+        OVRSpatialAnchor anchor = regiTarget.GetComponent<OVRSpatialAnchor>();
+        if (anchor == null)
+        {
+            anchor = regiTarget.gameObject.AddComponent<OVRSpatialAnchor>();
+        }
+
+        const float maxWaitSeconds = 10f;
+        float startTime = Time.realtimeSinceStartup;
+        while (anchor != null && (!anchor.Created || anchor.Uuid == Guid.Empty))
+        {
+            if (Time.realtimeSinceStartup - startTime >= maxWaitSeconds)
+            {
+                Debug.LogWarning($"[Registration] SaveAnchorsDelayed aborted: anchor not ready within {maxWaitSeconds}s. created={anchor.Created}, uuid={anchor.Uuid}");
+                yield break;
+            }
+
+            yield return null;
+            anchor = regiTarget.GetComponent<OVRSpatialAnchor>();
+        }
+
+        if (anchor == null)
+        {
+            Debug.LogWarning("[Registration] SaveAnchorsDelayed aborted: target has no OVRSpatialAnchor component after wait.");
+            yield break;
+        }
+
+        Task<AnchorLoaderManager.SaveAnchorOutcome> saveTask = _anchorLoaderManager.SaveAnchorAndPersistIfValidAsync(anchor);
+        while (!saveTask.IsCompleted)
+        {
+            yield return null;
+        }
+
+        if (saveTask.IsFaulted)
+        {
+            Debug.LogError($"[Registration] SaveAnchorsDelayed failed with exception: {saveTask.Exception}");
+            yield break;
+        }
+
+        AnchorLoaderManager.SaveAnchorOutcome saveOutcome = saveTask.Result;
+        if (!saveOutcome.Persisted)
+        {
+            Debug.LogWarning($"[Registration] SaveAnchorsDelayed did not persist UUID. status={saveOutcome.Status}, uuid={saveOutcome.Uuid}");
+            yield break;
+        }
+
+        if (!loadSceneAfterSaveForTest)
+        {
+            yield break;
+        }
+
+        yield return new WaitForSeconds(2);
+        LoadSceneForSaveTest();
+    }
+
+    private void LoadSceneForSaveTest()
+    {
+        if (string.IsNullOrWhiteSpace(sceneToLoadAfterSave))
+        {
+            Debug.LogWarning("Scene load after save is enabled, but no target scene is configured.");
+            return;
+        }
+
+        SceneManager.LoadScene(sceneToLoadAfterSave, LoadSceneMode.Single);
     }
 
 
     private void Align(RegiTarget target)
     {
         if (markers == null || markers.Count == 0 || target == null) return;
-        
+
         if (algorithmToUse == Algorithm.Kabsch)
             AlignMeshKabsch(markers.Select(marker => marker.transform.position).ToList(), target);
-        
+
         if (algorithmToUse == Algorithm.ProjectionPlaneMapping)
             RegistrationPlaneProjection.AlignMesh(markers.Select(marker => marker.transform.position).ToList(), target);
-        
+
     }
 
     private void AlignMeshKabsch(List<Vector3> selectedPositions, RegiTarget toTransform)

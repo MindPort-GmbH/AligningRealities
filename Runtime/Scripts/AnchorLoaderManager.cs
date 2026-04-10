@@ -15,6 +15,20 @@ using UnityEngine.Serialization;
 /// 
 public class AnchorLoaderManager : MonoBehaviour
 {
+    public readonly struct SaveAnchorOutcome
+    {
+        public bool Persisted { get; }
+        public Guid Uuid { get; }
+        public string Status { get; }
+
+        public SaveAnchorOutcome(bool persisted, Guid uuid, string status)
+        {
+            Persisted = persisted;
+            Uuid = uuid;
+            Status = status;
+        }
+    }
+
     public string numUuidsPlayerPref = "NumUuids";
     public List<OVRSpatialAnchor> anchors;
     public AnchorLoader AnchorLoader;
@@ -41,7 +55,6 @@ public class AnchorLoaderManager : MonoBehaviour
         
         Uuids.Clear();
         anchors.Clear();
-        Debug.Log($"Anchors erased.");
         DeleteSavedUuids();
     }
 
@@ -52,8 +65,46 @@ public class AnchorLoaderManager : MonoBehaviour
 
     public void SaveAnchor(OVRSpatialAnchor anchor)
     {
-        anchor.SaveAnchorAsync();
-        SaveUuid(anchor.Uuid);
+        _ = SaveAnchorAndPersistIfValidAsync(anchor);
+    }
+
+    public async Task<SaveAnchorOutcome> SaveAnchorAndPersistIfValidAsync(OVRSpatialAnchor anchor)
+    {
+        if (anchor == null)
+        {
+            Debug.LogWarning("[AnchorLoaderManager] SaveAnchorAndPersistIfValidAsync called with null anchor.");
+            return new SaveAnchorOutcome(false, Guid.Empty, "NullAnchor");
+        }
+
+        Guid initialUuid = anchor.Uuid;
+
+        try
+        {
+            var saveTask = anchor.SaveAnchorAsync();
+            while (!saveTask.IsCompleted)
+            {
+                await Task.Yield();
+            }
+
+            object saveResult = saveTask.GetResult();
+            bool success = TryGetResultSuccess(saveResult, false);
+            string status = GetResultStatus(saveResult);
+            Guid finalUuid = anchor.Uuid;
+
+            if (!success || finalUuid == Guid.Empty)
+            {
+                Debug.LogWarning($"[AnchorLoaderManager] Not persisting UUID. saveSuccess={success}, finalUuid={finalUuid}, status={status}");
+                return new SaveAnchorOutcome(false, finalUuid, status);
+            }
+
+            OverwriteSavedUuids(finalUuid);
+            return new SaveAnchorOutcome(true, finalUuid, status);
+        }
+        catch (Exception ex)
+        {
+            Debug.LogError($"[AnchorLoaderManager] SaveAnchorAsync threw for uuid={initialUuid}: {ex}");
+            return new SaveAnchorOutcome(false, Guid.Empty, "Exception");
+        }
     }
 
     private void SaveUuid(Guid uuid)
@@ -64,7 +115,8 @@ public class AnchorLoaderManager : MonoBehaviour
         }
 
         int playerNumUuids = PlayerPrefs.GetInt(numUuidsPlayerPref);
-        PlayerPrefs.SetString("uuid" + playerNumUuids, uuid.ToString());
+        string key = "uuid" + playerNumUuids;
+        PlayerPrefs.SetString(key, uuid.ToString());
         PlayerPrefs.SetInt(numUuidsPlayerPref, ++playerNumUuids);
         PlayerPrefs.Save();
     }
@@ -72,13 +124,18 @@ public class AnchorLoaderManager : MonoBehaviour
     private void DeleteSavedUuids()
     {
         if (!PlayerPrefs.HasKey(numUuidsPlayerPref))
+        {
             return;
+        }
+
         int numUuids = PlayerPrefs.GetInt(numUuidsPlayerPref);
         for (int i = 0; i < numUuids; i++)
         {
             string key = $"uuid{i}";
             if (PlayerPrefs.HasKey(key))
+            {
                 PlayerPrefs.DeleteKey(key);
+            }
         }
 
         PlayerPrefs.DeleteKey(numUuidsPlayerPref);
@@ -96,5 +153,57 @@ public class AnchorLoaderManager : MonoBehaviour
         RegiTarget tracker = instancedAnchor.GetComponent<RegiTarget>();
         tracker.uuidName = anchorGuid;
         anchors.Add(instancedAnchor);
+    }
+
+    public List<Guid> GetSavedUuids()
+    {
+        var result = new List<Guid>();
+        if (!PlayerPrefs.HasKey(numUuidsPlayerPref))
+            return result;
+
+        int numUuids = PlayerPrefs.GetInt(numUuidsPlayerPref);
+        for (int i = 0; i < numUuids; i++)
+        {
+            string uuidString = PlayerPrefs.GetString($"uuid{i}", string.Empty);
+            if (Guid.TryParse(uuidString, out Guid uuid) && uuid != Guid.Empty)
+            {
+                result.Add(uuid);
+            }
+            else if (!string.IsNullOrWhiteSpace(uuidString))
+            {
+                Debug.LogWarning($"[AnchorLoaderManager] Invalid UUID in PlayerPrefs key 'uuid{i}': '{uuidString}'");
+            }
+        }
+
+        return result;
+    }
+
+    private static bool TryGetResultSuccess(object result, bool defaultValue)
+    {
+        if (result == null)
+            return defaultValue;
+
+        Type resultType = result.GetType();
+        var successProperty = resultType.GetProperty("Success");
+        if (successProperty == null)
+            return defaultValue;
+
+        object successValue = successProperty.GetValue(result);
+        return successValue is bool success ? success : defaultValue;
+    }
+
+    private static string GetResultStatus(object result)
+    {
+        if (result == null)
+            return "Unknown";
+
+        object status = result.GetType().GetProperty("Status")?.GetValue(result);
+        return status?.ToString() ?? "Unknown";
+    }
+
+    private void OverwriteSavedUuids(Guid uuid)
+    {
+        DeleteSavedUuids();
+        SaveUuid(uuid);
     }
 }

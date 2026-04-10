@@ -37,7 +37,10 @@ public class AnchorLoader
         RemoveExistingAnchor(target);
 
         var uuids = LoadAnchorUuidsFromPrefs();
-        if (uuids.Length == 0) return;
+        if (uuids.Length == 0)
+        {
+            return;
+        }
 
         _spatialAnchorManager.Uuids.AddRange(uuids);
 
@@ -63,35 +66,40 @@ public class AnchorLoader
         if (!PlayerPrefs.HasKey(key))
             PlayerPrefs.SetInt(key, 0);
 
-        int count = PlayerPrefs.GetInt(key);
-        if (count == 0)
+        int storedCount = PlayerPrefs.GetInt(key);
+        if (storedCount == 0)
             return Array.Empty<Guid>();
 
-        var uuids = new Guid[count];
-        for (int i = 0; i < count; i++)
+        var uuids = new List<Guid>(storedCount);
+        for (int i = 0; i < storedCount; i++)
         {
             var uuidStr = PlayerPrefs.GetString("uuid" + i, string.Empty);
-            if (Guid.TryParse(uuidStr, out var uuid))
+            if (Guid.TryParse(uuidStr, out var uuid) && uuid != Guid.Empty)
             {
-                uuids[i] = uuid;
+                uuids.Add(uuid);
             }
             else
             {
-                Debug.LogWarning($"Invalid UUID at index {i}: {uuidStr}");
+                Debug.LogWarning($"[AnchorLoader] Invalid UUID at key 'uuid{i}': '{uuidStr}'");
             }
         }
 
-        return uuids;
+        return uuids.ToArray();
     }
 
     private async Task<List<OVRSpatialAnchor.UnboundAnchor>> LoadUnboundAnchorsAsync(Guid[] uuids)
     {
         var unboundAnchors = new List<OVRSpatialAnchor.UnboundAnchor>();
-        var result = await OVRSpatialAnchor.LoadUnboundAnchorsAsync(uuids, unboundAnchors);
+        var loadTask = OVRSpatialAnchor.LoadUnboundAnchorsAsync(uuids, unboundAnchors);
+        while (!loadTask.IsCompleted)
+        {
+            await Task.Yield();
+        }
 
+        var result = loadTask.GetResult();
         if (!result.Success)
         {
-            Debug.LogError($"Load anchors failed with status: {result.Status}");
+            Debug.LogError($"[AnchorLoader] Load anchors failed. status={result.Status}");
             return new List<OVRSpatialAnchor.UnboundAnchor>();
         }
 
@@ -111,7 +119,7 @@ public class AnchorLoader
     {
         if (!success)
         {
-            Debug.Log("NO SUCCESS");
+            Debug.LogWarning("[AnchorLoader] Localization failed for one unbound anchor.");
             return;
         }
         unboundAnchor.TryGetPose(out Pose pose);

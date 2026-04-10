@@ -1,5 +1,6 @@
 using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.Events;
 
 /// <summary>
 /// Handles controller assignment, calibration, and registration workflow in VR registration scenarios.
@@ -10,19 +11,19 @@ using UnityEngine;
 public class RegistrationVrController : MonoBehaviour
 {
     public Registration registration;
-    
+
     [SerializeField] private Handedness controllerSelection;
-    [SerializeField] private GameObject customObject;
-    
+    [SerializeField] private UnityEvent onAlignmentAccepted;
+
     [SerializeField] private bool calibrateObject;
     [HideInInspector] public GameObject controllerInUse;
-    
+
     protected Calibrator _calibrator;
     protected Vector3 _tipPosition;
     private GameObject _demoObject;
     private bool _isRecordingTipPosition;
     private readonly List<Vector3> _tipPositionsOverTime = new List<Vector3>();
-    public readonly Vector3 PredefinedTipPosition = new Vector3(0.01211928f,-0.08250856f,-0.08393941f);
+    public readonly Vector3 PredefinedTipPosition = new Vector3(0.01211928f, -0.08250856f, -0.08393941f);
 
     protected Handedness ControllerSelection => controllerSelection;
     protected bool CalibrateObject => calibrateObject;
@@ -43,7 +44,7 @@ public class RegistrationVrController : MonoBehaviour
         _demoObject.transform.SetParent(transform);
         registration.StateChanged += OnStateChanged;
     }
-    
+
 
     protected virtual void Start()
     {
@@ -116,24 +117,25 @@ public class RegistrationVrController : MonoBehaviour
         }
         if (AnyTriggerUp()) _calibrator.StopRecording();
         if (CancelButtonPressed()) _calibrator.SetRelativePostition(PredefinedTipPosition);
-        
+
     }
 
     protected virtual void MarkerStateActions()
     {
         UpdateTipPosition();
         UpdateDemoObject();
-        
-        if(_isRecordingTipPosition)_tipPositionsOverTime.Add(_tipPosition);
-        
+
+        if (_isRecordingTipPosition) _tipPositionsOverTime.Add(_tipPosition);
+
         LeftHandMarkerInteractions();
         RightHandMarkerInteractions();
     }
-    
+
     protected virtual void ConfirmationStateActions()
     {
         if (CommitButtonPressed())
         {
+            onAlignmentAccepted?.Invoke();
             registration.SaveRegistration();
             registration.SetState(Registration.State.Inactive);
         }
@@ -177,7 +179,7 @@ public class RegistrationVrController : MonoBehaviour
 
     protected virtual void EndRecordingTipPosition()
     {
-        if(_tipPositionsOverTime == null || _tipPositionsOverTime.Count < 1)return;
+        if (_tipPositionsOverTime == null || _tipPositionsOverTime.Count < 1) return;
         _isRecordingTipPosition = false;
         Vector3 midPoint = Vector3.zero;
         _tipPositionsOverTime.ForEach(pos => midPoint += pos);
@@ -217,7 +219,7 @@ public class RegistrationVrController : MonoBehaviour
         return OVRInput.GetDown(OVRInput.Button.PrimaryHandTrigger, OVRInput.Controller.RTouch) ||
                OVRInput.GetDown(OVRInput.Button.PrimaryIndexTrigger, OVRInput.Controller.RTouch);
     }
-    
+
     protected virtual bool AnyTriggerUp()
     {
         return OVRInput.GetUp(OVRInput.Button.PrimaryHandTrigger, OVRInput.Controller.RTouch) ||

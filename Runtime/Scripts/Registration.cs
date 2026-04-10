@@ -21,7 +21,7 @@ public class Registration : MonoBehaviour
     public event Action StateChanged;
     public string numUuidsKey = "demoTargetUuidKey";
     public bool onlyCorrectYAxis;
-    [SerializeField] private bool loadSceneAfterSaveForTest;
+    [SerializeField] private bool loadSceneAfterSave;
     [SerializeField] private string sceneToLoadAfterSave = "DatahubTest";
 
     [HideInInspector] public State currentState;
@@ -199,7 +199,7 @@ public class Registration : MonoBehaviour
             yield break;
         }
 
-        if (!loadSceneAfterSaveForTest)
+        if (!loadSceneAfterSave)
         {
             yield break;
         }

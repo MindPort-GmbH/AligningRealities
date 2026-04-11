@@ -3,7 +3,7 @@ using UnityEngine.Serialization;
 using UnityEngine.UI;
 
 [RequireComponent(typeof(RegistrationVrController))]
-public class SpatialPanel : MonoBehaviour
+public class RegistrationUI : MonoBehaviour
 {
     public Image colorImage;
 

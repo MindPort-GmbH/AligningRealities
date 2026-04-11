@@ -17,13 +17,13 @@ public class RegistrationVrController : MonoBehaviour
 
     [SerializeField] private bool calibrateObject;
     [HideInInspector] public GameObject controllerInUse;
+    [SerializeField] protected GameObject aligmentTarget;
 
     protected Calibrator _calibrator;
     protected Vector3 _tipPosition;
-    private GameObject _demoObject;
-    private bool _isRecordingTipPosition;
-    private readonly List<Vector3> _tipPositionsOverTime = new List<Vector3>();
-    public readonly Vector3 PredefinedTipPosition = new Vector3(0.01211928f, -0.08250856f, -0.08393941f);
+    protected bool _isRecordingTipPosition;
+    protected readonly List<Vector3> _tipPositionsOverTime = new List<Vector3>();
+    protected readonly Vector3 PredefinedTipPosition = new Vector3(0.01211928f, -0.08250856f, -0.08393941f);
 
     protected Handedness ControllerSelection => controllerSelection;
     protected bool CalibrateObject => calibrateObject;
@@ -39,9 +39,6 @@ public class RegistrationVrController : MonoBehaviour
     {
         _calibrator = gameObject.AddComponent<Calibrator>();
         SetupController();
-        _demoObject = Helper.CreateSmallSphere();
-        _demoObject.name = "Demo Object";
-        _demoObject.transform.SetParent(transform);
         registration.StateChanged += OnStateChanged;
     }
 
@@ -60,13 +57,13 @@ public class RegistrationVrController : MonoBehaviour
         switch (registration.currentState)
         {
             case Registration.State.Calibration:
-                _demoObject.SetActive(true);
+                aligmentTarget.SetActive(true);
                 break;
             case Registration.State.MarkerSetup:
-                _demoObject.SetActive(true);
+                aligmentTarget.SetActive(true);
                 break;
             case Registration.State.Confirmation:
-                _demoObject.SetActive(false);
+                aligmentTarget.SetActive(false);
                 break;
         }
     }
@@ -112,7 +109,7 @@ public class RegistrationVrController : MonoBehaviour
         if (CommitButtonPressed()) registration.SetState(Registration.State.MarkerSetup);
         if (AnyTriggerDown())
         {
-            _demoObject.SetActive(true);
+            aligmentTarget.SetActive(true);
             _calibrator.StartRecording();
         }
         if (AnyTriggerUp()) _calibrator.StopRecording();
@@ -158,10 +155,10 @@ public class RegistrationVrController : MonoBehaviour
 
     protected virtual void UpdateDemoObject()
     {
-        if (_demoObject == null) return;
+        if (aligmentTarget == null) return;
 
-        _demoObject.transform.position = _tipPosition;
-        Helper.SetColor(_demoObject, Helper.GetColorForIndex(registration.markers.Count));
+        aligmentTarget.transform.position = _tipPosition;
+        Helper.SetColor(aligmentTarget, Helper.GetColorForIndex(registration.markers.Count));
     }
 
     protected virtual void RightHandMarkerInteractions()

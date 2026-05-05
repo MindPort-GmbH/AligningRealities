@@ -205,10 +205,10 @@ public class Registration : MonoBehaviour
         }
 
         yield return new WaitForSeconds(2);
-        LoadSceneForSaveTest();
+        LoadConfiguredScene();
     }
 
-    private void LoadSceneForSaveTest()
+    private void LoadConfiguredScene()
     {
         if (string.IsNullOrWhiteSpace(sceneToLoadAfterSave))
         {

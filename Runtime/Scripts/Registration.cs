@@ -71,7 +71,6 @@ public class Registration : MonoBehaviour
                 ResetEverything();
                 OVRSpatialAnchor anchor = regiTarget.GetComponent<OVRSpatialAnchor>();
                 if (anchor != null) Destroy(anchor);
-                regiTarget.SetVisible(false);
                 break;
 
             case State.Inactive:

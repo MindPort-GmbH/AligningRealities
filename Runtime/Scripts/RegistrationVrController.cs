@@ -17,7 +17,8 @@ public class RegistrationVrController : MonoBehaviour
 
     [SerializeField] private bool calibrateObject;
     [HideInInspector] public GameObject controllerInUse;
-    [SerializeField] protected GameObject aligmentTarget;
+    [SerializeField] private GameObject aligmentTarget;
+    private GameObject aligmentTargetInstance;
 
     protected Calibrator _calibrator;
     protected Vector3 _tipPosition;
@@ -28,6 +29,28 @@ public class RegistrationVrController : MonoBehaviour
     protected Handedness ControllerSelection => controllerSelection;
     protected bool CalibrateObject => calibrateObject;
     protected virtual float TipForwardOffset => 0.06f;
+
+    public GameObject AligmentTarget
+    {
+        get
+        {
+            if (aligmentTargetInstance != null)
+            {
+                return aligmentTargetInstance;
+            }
+
+            if (aligmentTarget != null)
+            {
+                aligmentTargetInstance = Instantiate(aligmentTarget, transform, false);
+                aligmentTargetInstance.name = aligmentTarget.name;
+                return aligmentTargetInstance;
+            }
+
+            aligmentTargetInstance = Helper.CreateSmallSphere();
+            aligmentTargetInstance.transform.SetParent(transform, false);
+            return aligmentTargetInstance;
+        }
+    }
 
     public enum Handedness
     {
@@ -57,13 +80,13 @@ public class RegistrationVrController : MonoBehaviour
         switch (registration.currentState)
         {
             case Registration.State.Calibration:
-                aligmentTarget.SetActive(true);
+                AligmentTarget.SetActive(true);
                 break;
             case Registration.State.MarkerSetup:
-                aligmentTarget.SetActive(true);
+                AligmentTarget.SetActive(true);
                 break;
             case Registration.State.Confirmation:
-                aligmentTarget.SetActive(false);
+                AligmentTarget.SetActive(false);
                 break;
         }
     }
@@ -109,7 +132,7 @@ public class RegistrationVrController : MonoBehaviour
         if (CommitButtonPressed()) registration.SetState(Registration.State.MarkerSetup);
         if (AnyTriggerDown())
         {
-            aligmentTarget.SetActive(true);
+            AligmentTarget.SetActive(true);
             _calibrator.StartRecording();
         }
         if (AnyTriggerUp()) _calibrator.StopRecording();
@@ -155,10 +178,10 @@ public class RegistrationVrController : MonoBehaviour
 
     protected virtual void UpdateDemoObject()
     {
-        if (aligmentTarget == null) return;
+        if (AligmentTarget == null) return;
 
-        aligmentTarget.transform.position = _tipPosition;
-        Helper.SetColor(aligmentTarget, Helper.GetColorForIndex(registration.markers.Count));
+        AligmentTarget.transform.position = _tipPosition;
+        Helper.SetColor(AligmentTarget, Helper.GetColorForIndex(registration.markers.Count));
     }
 
     protected virtual void RightHandMarkerInteractions()

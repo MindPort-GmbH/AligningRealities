@@ -88,7 +88,7 @@ public class Registration : MonoBehaviour
     {
         if (markers.Count >= regiTarget.amountControlPoints) return;
 
-        GameObject go = Helper.CreateSmallSphere();
+        GameObject go = CreateMarkerVisual();
         go.transform.position = position;
         go.AddComponent<OVRSpatialAnchor>();
         Helper.SetColor(go, Helper.GetColorForIndex(markers.Count));
@@ -144,6 +144,19 @@ public class Registration : MonoBehaviour
     {
         markers.ForEach(Destroy);
         markers.Clear();
+    }
+
+    private GameObject CreateMarkerVisual()
+    {
+        if (regiTarget != null && regiTarget.RegiTargetVisualisation != null)
+        {
+            GameObject markerVisual = Instantiate(regiTarget.RegiTargetVisualisation, transform);
+            markerVisual.name = regiTarget.RegiTargetVisualisation.name;
+            return markerVisual;
+        }
+
+        Debug.LogWarning($"[{nameof(Registration)}:{name}] RegiTargetVisualisation reference is missing. Created backup marker via Helper. Marker will not be visible in builds.", this);
+        return Helper.CreateSmallSphere();
     }
 
     private void LinkPositionFromDevice()

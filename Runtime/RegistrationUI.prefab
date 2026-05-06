@@ -795,9 +795,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   registration: {fileID: 0}
   controllerSelection: 0
-  customObject: {fileID: 0}
+  onAlignmentAccepted:
+    m_PersistentCalls:
+      m_Calls: []
   calibrateObject: 0
   controllerInUse: {fileID: 0}
+  aligmentTarget: {fileID: 4787713077208734620, guid: 9f46f9d192fa65c43829763b6b4fadcc,
+    type: 3}
 --- !u!114 &6634393656915495675
 MonoBehaviour:
   m_ObjectHideFlags: 0

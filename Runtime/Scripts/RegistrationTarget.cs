@@ -7,9 +7,12 @@ using UnityEngine;
 public class RegiTarget : MonoBehaviour
 {
     [Range(3, 5)] public int amountControlPoints;
+    [SerializeField] private GameObject regiTargetVisualisation;
     [HideInInspector][SerializeField] public RegiMarker[] markers;
-    [HideInInspector]public Vector3[] relativeMarkerPositions;
-    [HideInInspector]public Guid uuidName;
+    [HideInInspector] public Vector3[] relativeMarkerPositions;
+    [HideInInspector] public Guid uuidName;
+
+    public GameObject RegiTargetVisualisation { get => regiTargetVisualisation; }
 
     private void OnValidate()
     {

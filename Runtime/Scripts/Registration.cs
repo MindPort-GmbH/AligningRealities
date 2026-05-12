@@ -4,7 +4,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 using UnityEngine;
-using UnityEngine.SceneManagement;
 
 /// <summary>
 /// Manages registration workflow, including marker setup, state changes, and alignment algorithms for a target object.
@@ -21,8 +20,6 @@ public class Registration : MonoBehaviour
     public event Action StateChanged;
     public string numUuidsKey = "demoTargetUuidKey";
     public bool onlyCorrectYAxis;
-    [SerializeField] private bool loadSceneAfterSave;
-    [SerializeField] private string sceneToLoadAfterSave = "DatahubTest";
 
     [HideInInspector] public State currentState;
     [HideInInspector] public List<GameObject> markers;
@@ -208,27 +205,9 @@ public class Registration : MonoBehaviour
         if (!saveOutcome.Persisted)
         {
             Debug.LogWarning($"[Registration] SaveAnchorsDelayed did not persist UUID. status={saveOutcome.Status}, uuid={saveOutcome.Uuid}");
-            yield break;
         }
 
-        if (!loadSceneAfterSave)
-        {
-            yield break;
-        }
-
-        yield return new WaitForSeconds(2);
-        LoadConfiguredScene();
-    }
-
-    private void LoadConfiguredScene()
-    {
-        if (string.IsNullOrWhiteSpace(sceneToLoadAfterSave))
-        {
-            Debug.LogWarning("Scene load after save is enabled, but no target scene is configured.");
-            return;
-        }
-
-        SceneManager.LoadScene(sceneToLoadAfterSave, LoadSceneMode.Single);
+        yield break;
     }
 
 

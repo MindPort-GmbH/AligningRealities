@@ -47,6 +47,12 @@ public class Registration : MonoBehaviour
     {
         RegistrationPlaneProjection = new RegistrationPlaneProjection();
         markers = new List<GameObject>();
+        if (regiTarget == null)
+        {
+            Debug.LogError($"[Registration:{name}] RegiTarget reference is missing. Registration is disabled.", this);
+            enabled = false;
+            return;
+        }
         regiTarget.SetVisible(false);
 
         _anchorLoaderManager = gameObject.AddComponent<AnchorLoaderManager>();

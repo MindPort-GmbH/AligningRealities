@@ -60,6 +60,12 @@ public class RegistrationVrController : MonoBehaviour
 
     protected virtual void Awake()
     {
+        if (registration == null || registration.regiTarget == null || !registration.enabled)
+        {
+            Debug.LogError($"[{GetType().Name}:{name}] Registration or its RegiTarget is missing or disabled. Controller is disabled.", this);
+            enabled = false;
+            return;
+        }
         _calibrator = gameObject.AddComponent<Calibrator>();
         SetupController();
         registration.StateChanged += OnStateChanged;
